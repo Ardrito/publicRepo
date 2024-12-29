@@ -7,7 +7,15 @@ import matplotlib.pyplot as plt
 import cv2
 from fastapi import FastAPI
 
-from fastapi import File
+from fastapi import File, UploadFile, HTTPException
+
+import os
+
+from typing import Any
+from fastapi.responses import FileResponse
+
+#import aiofiles
+
 
 app = FastAPI()
 
@@ -28,6 +36,7 @@ def show_img(i, data, labels):
         color = 'red'
         
     plt.xlabel(f"Pred:{pred} (Actual:{labels[i]})", color=color)
+    plt.show()
     
 def plot_graph(num_rows, num_cols, data, labels):
   '''
@@ -87,23 +96,29 @@ def predict(num):
     
     #xlabel imshow with prediction and certainty to 2dp
     plt.xlabel(f"Prediction: {pred}, Certainty: {format(certainty, '.2f')}")
+    plt.xticks([])
+    plt.yticks([])
     
-    return(pred,certainty)
+    return(num,pred,certainty)
 
 @app.get("/")
 def welcome()-> str:
     return("Welcome")
 
-@app.get("/2")
-def welcome()-> str:
-    return("Page 2")
-
-from fastapi import File, UploadFile, HTTPException
-
-#import aiofiles
-
 @app.post("/upload")
-def upload(file: UploadFile = File(...))-> tuple[int, float]:
+def upload(file: UploadFile = File(...))-> tuple[list, int, float]:
+    '''
+    Take uploaded file and predict
+    
+    Parameters
+    -----------
+    file: (Tested for JPG) Image of any dimensions or color, preferably square like
+
+    returns
+    -----------
+
+    tuple[prediction, certainty]
+    '''
     try:
         contents = file.file.read()
         with open(file.filename, 'wb') as f:
@@ -114,14 +129,33 @@ def upload(file: UploadFile = File(...))-> tuple[int, float]:
         file.file.close()
     
     num = cv2.imread(f"{file.filename}",cv2.IMREAD_GRAYSCALE) #Read the image as a grayscale
-    pred, uncertainty = predict(num)
+    num, pred, certainty = predict(num)
 
-    return pred,uncertainty
+    print(type(num))
 
-    #return {"message": f"Successfully uploaded {file.filename}"}
+    #os.remove(file.filename)
 
+    num = np.reshape(num,(28,28))
 
-#@app.post("/upload")
-#async def endpoint(image: bytes = File()):
-#    image = cv2.imread(image,cv2.IMREAD_GRAYSCALE)
-#    show_img(image)
+    plt.imshow(num,cmap=plt.cm.binary)
+    plt.xlabel(f"Prediction: {pred} with certainty {certainty}%")
+
+    plt.savefig("test.png")
+
+    return num.tolist(),pred,certainty
+
+@app.get("/get/{name}")
+def download(name)-> FileResponse:
+    '''
+    Return processed image with prediction and certainty as xlabel
+    '''
+    return FileResponse(name, filename="newTest.png", media_type="png")
+
+@app.delete("/delete/{name}")
+def remove(name)->str:
+    '''
+    Delete user uploaded photo from local storage
+    '''
+    os.remove(name)
+
+    return("Done")
