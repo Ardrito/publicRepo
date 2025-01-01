@@ -34,4 +34,3 @@ plt.show()
 
 delname = "newTest.jpg"
 print(requests.delete(f"http://127.0.0.1:8000/delete/{name}").json()) 
-

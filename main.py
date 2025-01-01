@@ -14,6 +14,8 @@ import os
 from typing import Any
 from fastapi.responses import FileResponse
 
+import psycopg2
+
 #import aiofiles
 
 
