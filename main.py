@@ -13,13 +13,29 @@ import os
 
 from typing import Any
 from fastapi.responses import FileResponse
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 
 import psycopg2
 
-#import aiofiles
-
-
+from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI()
+
+#import aiofiles
+origins = [
+    'http://localhost:3000'
+]
+
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=['*'],
+    allow_headers=['*']
+
+)
 
 model = tf.keras.models.load_model('savedModels/test_model.keras')
 
@@ -104,8 +120,11 @@ def predict(num):
     return(num,pred,certainty)
 
 @app.get("/")
-def welcome()-> str:
-    return("Welcome")
+async def welcome()-> str:
+
+    # jsonresp = jsonable_encoder("Welcome")
+    # return JSONResponse(content=jsonresp)
+    return("welcome")
 
 @app.post("/upload")
 def upload(file: UploadFile = File(...))-> tuple[list, int, float]:
