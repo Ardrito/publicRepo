@@ -161,7 +161,7 @@ def upload(file: UploadFile = File(...))-> tuple[list, int, float]:
     plt.imshow(num,cmap=plt.cm.binary)
     plt.xlabel(f"Prediction: {pred} with certainty {certainty}%")
 
-    plt.savefig("test.png")
+    plt.savefig(file.filename)
 
     return num.tolist(),pred,certainty
 
@@ -170,13 +170,15 @@ def download(name)-> FileResponse:
     '''
     Return processed image with prediction and certainty as xlabel
     '''
-    return FileResponse(name, filename="newTest.png", media_type="png")
+    return FileResponse(name, filename='test.png', media_type="png")
 
 @app.delete("/delete/{name}")
-def remove(name)->str:
+def remove(name: str)->str:
     '''
     Delete user uploaded photo from local storage
     '''
+    if not (os.path.isfile(name)):
+        return ("File does not exist")
     os.remove(name)
 
     return("Done")
