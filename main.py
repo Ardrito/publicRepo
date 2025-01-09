@@ -5,13 +5,14 @@ from tensorflow import keras
 
 import matplotlib.pyplot as plt
 import cv2
-from fastapi import FastAPI
+from fastapi import FastAPI, Form
 
 from fastapi import File, UploadFile, HTTPException
+from pydantic import BaseModel
 
 import os
 
-from typing import Any
+from typing import Any, Annotated
 from fastapi.responses import FileResponse
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
@@ -118,6 +119,9 @@ def predict(num):
     plt.yticks([])
     
     return(num,pred,certainty)
+class FormData(BaseModel):
+    image: bytes
+    label: str
 
 @app.get("/")
 async def welcome()-> str:
@@ -125,6 +129,37 @@ async def welcome()-> str:
     # jsonresp = jsonable_encoder("Welcome")
     # return JSONResponse(content=jsonresp)
     return("welcome")
+
+
+
+@app.post("/test")
+async def testUploadForm(file: Annotated[UploadFile, Form()], label: Annotated[str, Form()]):
+    label = int(label)
+    try:
+        contents = file.file.read()
+        with open(file.filename, 'wb') as f:
+            f.write(contents)
+    except Exception:
+        raise HTTPException(status_code=500, detail='Something went wrong')
+    finally:
+        file.file.close()
+    
+    num = cv2.imread(f"{file.filename}",cv2.IMREAD_GRAYSCALE) #Read the image as a grayscale
+    num, pred, certainty = predict(num)
+
+    print(type(num))
+
+    #os.remove(file.filename)
+
+    num = np.reshape(num,(28,28))
+
+    plt.imshow(num,cmap=plt.cm.binary)
+    plt.xlabel(f"Prediction: {pred} with certainty {certainty}%")
+    #plt.show()
+
+    plt.savefig(file.filename)
+
+    return (label)
 
 @app.post("/upload")
 def upload(file: UploadFile = File(...))-> tuple[list, int, float]:
