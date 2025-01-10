@@ -6,7 +6,7 @@ from typing import Any, Annotated
 
 
 import tensorflow as tf
-from tensorflow.keras.datasets import mnist
+#from tensorflow.keras.datasets import mnist
 from tensorflow import keras
 
 
