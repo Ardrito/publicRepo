@@ -19,14 +19,16 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 
-logger = logging.getLogger('uvicorn.error')
-logger.setLevel(logging.DEBUG)
-
-
 
 import psycopg2 as psy
 from config import config
 
+db = 'idtest'
+table = 'dummy'
+
+
+logger = logging.getLogger('uvicorn.error')
+logger.setLevel(logging.DEBUG)
 
 app = FastAPI()
 
@@ -94,11 +96,11 @@ def create_table():
     Create postgres table to store images and data
     '''
     try:
-        conn = psy.connect(**config(),database='idtest') #Hardcoded database choice, can be moved to ini later
+        conn = psy.connect(**config(),database=db) #Hardcoded database choice, can be moved to ini later
         conn.autocommit = True
 
         crsr = conn.cursor()
-        crsr.execute('''CREATE TABLE dummy (id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, image TEXT, label INT, prediction INT, correct BOOL, certainty REAL);''')
+        crsr.execute(f'''CREATE TABLE {table} (id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, image TEXT, label INT, prediction INT, correct BOOL, certainty REAL);''')
         
     except(Exception, psy.DatabaseError) as error:
         print (error)
@@ -147,7 +149,7 @@ def load_to_postgres(path:str="numbers"):
     Image names within label folders not relevant
     '''
     try:
-        conn = psy.connect(**config(),database='idtest')
+        conn = psy.connect(**config(),database=db)
         print(conn)
         conn.autocommit = True
         crsr=conn.cursor()
@@ -161,7 +163,7 @@ def load_to_postgres(path:str="numbers"):
 
                     temp_image = np.reshape(img,(-1)) #Image stored as a string (TEXT) of a 1D array in postgres
                     
-                    crsr.execute(f'''INSERT INTO dummy(image, label) VALUES ('{temp_image}',{i})''')
+                    crsr.execute(f'''INSERT INTO {table}(image, label) VALUES ('{temp_image}',{i})''')
         crsr.close()
     except(Exception, psy.DatabaseError) as error:
         print (error)
@@ -179,14 +181,14 @@ def predict_from_postgres(id):
     id (int): Primary key from postgres table
     '''
     try:
-        conn = psy.connect(**config(),database='idtest') #Hardcoded database choice, can be moved to ini later
+        conn = psy.connect(**config(),database=db) #Hardcoded database choice, can be moved to ini later
         conn.autocommit = True
 
         crsr = conn.cursor()
-        crsr.execute(f'''SELECT image FROM dummy WHERE id = {id}''')
+        crsr.execute(f'''SELECT image FROM {table} WHERE id = {id}''')
         data = str(crsr.fetchone()[0])
 
-        crsr.execute(f'''SELECT label FROM dummy WHERE id = {id}''')
+        crsr.execute(f'''SELECT label FROM {table} WHERE id = {id}''')
         label = crsr.fetchone()[0]
 
         #Image stored as a string (TEXT) of a 1D array in postgres convert to a np.ndarray
@@ -202,7 +204,7 @@ def predict_from_postgres(id):
             correct = False
         
         #Update table values
-        crsr.execute(f'''UPDATE dummy SET prediction = {prediction}, certainty = {certainty}, correct = {correct} WHERE id = {id}''')
+        crsr.execute(f'''UPDATE {table} SET prediction = {prediction}, certainty = {certainty}, correct = {correct} WHERE id = {id}''')
 
         
 
@@ -348,12 +350,12 @@ async def testUploadForm(file: Annotated[UploadFile, Form()], label: Annotated[s
 
     message = 'message'
     try:
-        conn = psy.connect(**config(),database='idtest')
+        conn = psy.connect(**config(),database=db)
         conn.autocommit = True
         crsr=conn.cursor()
         num = np.reshape(num,(-1))
-        crsr.execute(f'''INSERT INTO dummy(image, label, prediction, correct, certainty) VALUES ('{num}', {label}, {pred}, {correct}, {certainty})''')
-        crsr.execute('''SELECT MAX(id) FROM dummy''')
+        crsr.execute(f'''INSERT INTO {table}(image, label, prediction, correct, certainty) VALUES ('{num}', {label}, {pred}, {correct}, {certainty})''')
+        crsr.execute(f'''SELECT MAX(id) FROM {table}''')
         data = crsr.fetchone()[0]
         crsr.close()
         message = 'yes'
