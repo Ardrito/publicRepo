@@ -3,8 +3,6 @@
 import React, {useEffect, useState} from 'react';
 import {
   Card,
-  Input,
-  Checkbox,
   Button,
   Typography,
 } from "@material-tailwind/react";
