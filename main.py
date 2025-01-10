@@ -1,33 +1,41 @@
 import numpy as np
+import matplotlib.pyplot as plt
+import cv2
+import os
+from typing import Any, Annotated
+
+
 import tensorflow as tf
 from tensorflow.keras.datasets import mnist
 from tensorflow import keras
 
-import matplotlib.pyplot as plt
-import cv2
-from fastapi import FastAPI, Form
 
+from fastapi import FastAPI, Form
 from fastapi import File, UploadFile, HTTPException
 from pydantic import BaseModel
-
-import os
-
-from typing import Any, Annotated
 from fastapi.responses import FileResponse
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
-
-import psycopg2
-
 from fastapi.middleware.cors import CORSMiddleware
+import logging
+
+logger = logging.getLogger('uvicorn.error')
+logger.setLevel(logging.DEBUG)
+
+
+
+import psycopg2 as psy
+from config import config
+
+
 app = FastAPI()
+
+model = tf.keras.models.load_model('savedModels/test_model.keras')
 
 #import aiofiles
 origins = [
     'http://localhost:3000'
 ]
-
-
 
 app.add_middleware(
     CORSMiddleware,
@@ -38,7 +46,175 @@ app.add_middleware(
 
 )
 
-model = tf.keras.models.load_model('savedModels/test_model.keras')
+def connectTest():
+    
+
+    """ Connect to the PostgreSQL database server """
+    try:
+        # connecting to the PostgreSQL server
+        with psy.connect(**config()) as conn:
+            print('Connected to the PostgreSQL server.')
+            return conn
+    except (psy.DatabaseError, Exception) as error:
+        print(error)
+
+def connect_Create_db():
+    conn = None
+    try:
+        conn = psy.connect(**config())
+        conn.autocommit = True
+        print("Connected to the PostgreSQL server")
+
+        crsr = conn.cursor()
+        crsr.execute('SELECT version()')
+        db_version = crsr.fetchone()
+        #crsr.close()
+        print(f"PostgreSQL database version: {db_version}")
+
+        dbname = "pycreatetest2"
+        #crsr.execute('CREATE DATABASE pycreatetest ;')
+        #crsr.execute('SELECT datname FROM pg_database WHERE datistemplate = false;')
+        crsr.execute(f"SELECT datname FROM pg_database WHERE datname = '{dbname}'")
+        tables = crsr.fetchall()
+        #print(len(tables))
+        if len(tables) == 0:
+            crsr.execute(f'CREATE DATABASE {dbname}')
+        crsr.close()
+
+    except(Exception, psy.DatabaseError) as error:
+        print(error)
+
+    finally:
+        if conn != None:
+            conn.close()
+            print("Connection closed")
+
+def create_table():
+    '''
+    Create postgres table to store images and data
+    '''
+    try:
+        conn = psy.connect(**config(),database='idtest') #Hardcoded database choice, can be moved to ini later
+        conn.autocommit = True
+
+        crsr = conn.cursor()
+        crsr.execute('''CREATE TABLE dummy (id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, image TEXT, label INT, prediction INT, correct BOOL, certainty REAL);''')
+        
+    except(Exception, psy.DatabaseError) as error:
+        print (error)
+
+    finally:
+        crsr.close()
+        conn.close()
+
+def load_to_postgres(path:str="numbers"):
+    '''
+    Load dataset from folder into postgresql table
+    
+    Parameters
+    ----------
+    
+    path: (str) path to root folder containing dataset
+
+    Returns
+    ----------
+    
+    numbers: (ndarray) (n,24,24) Array of number images
+    
+    labels: (ndarray) (n,) Array of labels
+    
+    Folder structure
+    -----------------
+    
+    /numbers #root dir
+        numbers/0
+            img.jpg
+            img.jpg
+            .
+            .
+            .
+        numbers/1   
+            img.jpg
+            img.jpg
+            .
+            .
+            .
+        .
+        .
+        .
+        
+    numbers folder containing folders with folder name as the label (0 to 9)
+    Image names within label folders not relevant
+    '''
+    try:
+        conn = psy.connect(**config(),database='idtest')
+        print(conn)
+        conn.autocommit = True
+        crsr=conn.cursor()
+        for i in range(10):
+            for dirpath,dirnames,filenames in (os.walk(f"{path}/{i}")):
+                for file in filenames:
+                    img = cv2.imread(f"{path}/{i}/{file}",cv2.IMREAD_GRAYSCALE) 
+                    img = cv2.resize(img,(28,28), interpolation=cv2.INTER_AREA)
+                    img = (255-img)/255.0
+                    #img = np.reshape(img,(1,28,28))
+
+                    temp_image = np.reshape(img,(-1)) #Image stored as a string (TEXT) of a 1D array in postgres
+                    
+                    crsr.execute(f'''INSERT INTO dummy(image, label) VALUES ('{temp_image}',{i})''')
+        crsr.close()
+    except(Exception, psy.DatabaseError) as error:
+        print (error)
+    finally:
+        if conn != None:
+            conn.close()
+            print("Connection closed")
+    
+def predict_from_postgres(id):
+    '''
+    Predict number & uncertainty, display processed image, from postgres table
+
+    Parameters
+    ----------
+    id (int): Primary key from postgres table
+    '''
+    try:
+        conn = psy.connect(**config(),database='idtest') #Hardcoded database choice, can be moved to ini later
+        conn.autocommit = True
+
+        crsr = conn.cursor()
+        crsr.execute(f'''SELECT image FROM dummy WHERE id = {id}''')
+        data = str(crsr.fetchone()[0])
+
+        crsr.execute(f'''SELECT label FROM dummy WHERE id = {id}''')
+        label = crsr.fetchone()[0]
+
+        #Image stored as a string (TEXT) of a 1D array in postgres convert to a np.ndarray
+        img = (np.fromstring(data.strip('[]'),dtype=float, sep=' '))
+
+        img = np.reshape(img, (1,28,28)) #Reshape image as model.predict requires 3D array
+
+        prediction, certainty = show_img(0,img,[label])
+
+        if (prediction != None) & (prediction == label):
+            correct = True
+        elif (prediction != label):
+            correct = False
+        
+        #Update table values
+        crsr.execute(f'''UPDATE dummy SET prediction = {prediction}, certainty = {certainty}, correct = {correct} WHERE id = {id}''')
+
+        
+
+    except(Exception, psy.DatabaseError) as error:
+        print (error)
+
+    finally:
+        crsr.close()
+        conn.close()
+
+# for i in range(1,13):
+#     predict_from_postgres(i)
 
 def show_img(i, data, labels):
     '''
@@ -48,6 +224,7 @@ def show_img(i, data, labels):
     
     predA = (model.predict(data)[i])
     pred = np.argmax(predA)
+    certainty = round((np.max(predA)*100),2)
     
     if (pred == labels[i]):
         color = 'green'
@@ -56,6 +233,8 @@ def show_img(i, data, labels):
         
     plt.xlabel(f"Pred:{pred} (Actual:{labels[i]})", color=color)
     plt.show()
+
+    return(pred, certainty)
     
 def plot_graph(num_rows, num_cols, data, labels):
   '''
@@ -119,9 +298,7 @@ def predict(num):
     plt.yticks([])
     
     return(num,pred,certainty)
-class FormData(BaseModel):
-    image: bytes
-    label: str
+
 
 @app.get("/")
 async def welcome()-> str:
@@ -130,11 +307,10 @@ async def welcome()-> str:
     # return JSONResponse(content=jsonresp)
     return("welcome")
 
-
-
 @app.post("/test")
 async def testUploadForm(file: Annotated[UploadFile, Form()], label: Annotated[str, Form()]):
     label = int(label)
+    
     try:
         contents = file.file.read()
         with open(file.filename, 'wb') as f:
@@ -159,7 +335,54 @@ async def testUploadForm(file: Annotated[UploadFile, Form()], label: Annotated[s
 
     plt.savefig(file.filename)
 
-    return (label)
+    if (pred != None) & (pred == label):
+            correct = True
+    elif (pred != label):
+        correct = False
+
+    if label == 11:
+        label = 'NULL'
+        correct = 'NULL'
+
+    logger.debug('error message')
+
+    message = 'message'
+    try:
+        conn = psy.connect(**config(),database='idtest')
+        conn.autocommit = True
+        crsr=conn.cursor()
+        num = np.reshape(num,(-1))
+        crsr.execute(f'''INSERT INTO dummy(image, label, prediction, correct, certainty) VALUES ('{num}', {label}, {pred}, {correct}, {certainty})''')
+        crsr.execute('''SELECT MAX(id) FROM dummy''')
+        data = crsr.fetchone()[0]
+        crsr.close()
+        message = 'yes'
+        print (data)
+    except(Exception, psy.DatabaseError) as error:
+        print(error)
+    finally:
+        conn.close()
+
+
+    return (message)
+
+@app.get("/get/{name}")
+def download(name)-> FileResponse:
+    '''
+    Return processed image with prediction and certainty as xlabel
+    '''
+    return FileResponse(name, filename='test.png', media_type="png")
+
+@app.delete("/delete/{name}")
+def remove(name: str)->str:
+    '''
+    Delete user uploaded photo from local storage
+    '''
+    if not (os.path.isfile(name)):
+        return ("File does not exist")
+    os.remove(name)
+
+    return("Done")
 
 @app.post("/upload")
 def upload(file: UploadFile = File(...))-> tuple[list, int, float]:
@@ -199,21 +422,3 @@ def upload(file: UploadFile = File(...))-> tuple[list, int, float]:
     plt.savefig(file.filename)
 
     return num.tolist(),pred,certainty
-
-@app.get("/get/{name}")
-def download(name)-> FileResponse:
-    '''
-    Return processed image with prediction and certainty as xlabel
-    '''
-    return FileResponse(name, filename='test.png', media_type="png")
-
-@app.delete("/delete/{name}")
-def remove(name: str)->str:
-    '''
-    Delete user uploaded photo from local storage
-    '''
-    if not (os.path.isfile(name)):
-        return ("File does not exist")
-    os.remove(name)
-
-    return("Done")
