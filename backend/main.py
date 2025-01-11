@@ -377,8 +377,10 @@ def testUploadForm(file: Annotated[UploadFile, Form()], label: Annotated[str, Fo
     finally:
         conn.close()
 
+    #print(type(label), type(certainty)) 
 
-    return (label, certainty)
+    #certainty is numpy.float32 --> not json compatible must be regular float
+    return (label, float(certainty)) #
 
 @app.get("/get/{name}")
 def download(name)-> FileResponse:
