@@ -21,7 +21,7 @@ function upload(){
     const [preview, setPreview] = useState<string | ArrayBuffer | null>();
     const [label, setLabel] = useState<Number>(11);
     let navigate = useRouter();
-    const base = 'http://localhost:8000/'
+    const base = 'http://localhost:8001/'
 
     async function handleOnSubmit(e: React.SyntheticEvent){
         e.preventDefault();

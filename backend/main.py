@@ -23,19 +23,21 @@ import logging
 import psycopg2 as psy
 from config import config
 
-db = 'idtest'
-table = 'dummy'
+db = 'mnistdb'
+table = 'data'
 
 
 logger = logging.getLogger('uvicorn.error')
 logger.setLevel(logging.DEBUG)
 
+logger.debug('error message')
+
 app = FastAPI()
 
 model = tf.keras.models.load_model('savedModels/test_model.keras')
 
-#import aiofiles
 origins = [
+    'http://localhost:3001',
     'http://localhost:3000'
 ]
 
@@ -73,7 +75,7 @@ def connect_Create_db():
         #crsr.close()
         print(f"PostgreSQL database version: {db_version}")
 
-        dbname = "pycreatetest2"
+        dbname = db
         #crsr.execute('CREATE DATABASE pycreatetest ;')
         #crsr.execute('SELECT datname FROM pg_database WHERE datistemplate = false;')
         crsr.execute(f"SELECT datname FROM pg_database WHERE datname = '{dbname}'")
@@ -81,6 +83,8 @@ def connect_Create_db():
         #print(len(tables))
         if len(tables) == 0:
             crsr.execute(f'CREATE DATABASE {dbname}')
+        else:
+            print('DB exists')
         crsr.close()
 
     except(Exception, psy.DatabaseError) as error:
@@ -89,7 +93,7 @@ def connect_Create_db():
     finally:
         if conn != None:
             conn.close()
-            print("Connection closed")
+            #print("Connection closed")
 
 def create_table():
     '''
@@ -98,9 +102,16 @@ def create_table():
     try:
         conn = psy.connect(**config(),database=db) #Hardcoded database choice, can be moved to ini later
         conn.autocommit = True
-
         crsr = conn.cursor()
-        crsr.execute(f'''CREATE TABLE {table} (id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, image TEXT, label INT, prediction INT, correct BOOL, certainty REAL);''')
+
+        crsr.execute(f'''SELECT EXISTS ( SELECT FROM information_schema.tables WHERE table_name   = '{table}');''')
+        
+        exists = bool(crsr.fetchone()[0])
+        if (exists == True):
+            print('Table exists')
+        else:
+            crsr.execute(f'''CREATE TABLE {table} (id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, image TEXT, label INT, prediction INT, correct BOOL, certainty REAL);''')
+            print('Table created')
         
     except(Exception, psy.DatabaseError) as error:
         print (error)
@@ -234,7 +245,7 @@ def show_img(i, data, labels):
         color = 'red'
         
     plt.xlabel(f"Pred:{pred} (Actual:{labels[i]})", color=color)
-    plt.show()
+    #plt.show()
 
     return(pred, certainty)
     
@@ -310,7 +321,7 @@ async def welcome()-> str:
     return("welcome")
 
 @app.post("/test")
-async def testUploadForm(file: Annotated[UploadFile, Form()], label: Annotated[str, Form()]):
+def testUploadForm(file: Annotated[UploadFile, Form()], label: Annotated[str, Form()]):
     label = int(label)
     
     try:
@@ -325,7 +336,7 @@ async def testUploadForm(file: Annotated[UploadFile, Form()], label: Annotated[s
     num = cv2.imread(f"{file.filename}",cv2.IMREAD_GRAYSCALE) #Read the image as a grayscale
     num, pred, certainty = predict(num)
 
-    print(type(num))
+    #print(type(num))
 
     #os.remove(file.filename)
 
@@ -346,9 +357,10 @@ async def testUploadForm(file: Annotated[UploadFile, Form()], label: Annotated[s
         label = 'NULL'
         correct = 'NULL'
 
-    logger.debug('error message')
-
-    message = 'message'
+    #logger.debug('error message')
+    
+    connect_Create_db()
+    create_table()
     try:
         conn = psy.connect(**config(),database=db)
         conn.autocommit = True
@@ -366,7 +378,7 @@ async def testUploadForm(file: Annotated[UploadFile, Form()], label: Annotated[s
         conn.close()
 
 
-    return (message)
+    return (label, certainty)
 
 @app.get("/get/{name}")
 def download(name)-> FileResponse:
@@ -385,6 +397,16 @@ def remove(name: str)->str:
     os.remove(name)
 
     return("Done")
+
+@app.get("/iNiTiAlIsE")
+def iNiTiAlIsE():
+    connect_Create_db()
+    create_table()
+    load_to_postgres()
+    for i in range(1,13):
+        predict_from_postgres(i)
+    return("Done initialising")
+
 
 @app.post("/upload")
 def upload(file: UploadFile = File(...))-> tuple[list, int, float]:
@@ -424,3 +446,5 @@ def upload(file: UploadFile = File(...))-> tuple[list, int, float]:
     plt.savefig(file.filename)
 
     return num.tolist(),pred,certainty
+
+logger.debug('end')
