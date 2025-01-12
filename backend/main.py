@@ -336,6 +336,8 @@ def testUploadForm(file: Annotated[UploadFile, Form()], label: Annotated[str, Fo
     num = cv2.imread(f"{file.filename}",cv2.IMREAD_GRAYSCALE) #Read the image as a grayscale
     num, pred, certainty = predict(num)
 
+    certainty = round(float(certainty), 2)
+
     #print(type(num))
 
     #os.remove(file.filename)
@@ -379,8 +381,8 @@ def testUploadForm(file: Annotated[UploadFile, Form()], label: Annotated[str, Fo
 
     #print(type(label), type(certainty)) 
 
-    #certainty is numpy.float32 --> not json compatible must be regular float
-    return (label, float(certainty)) #
+    #certainty is numpy.float32, pred is numpy int64 --> numpy formats not json compatible must be standard types
+    return (int(pred), float(certainty)) #
 
 @app.get("/get/{name}")
 def download(name)-> FileResponse:

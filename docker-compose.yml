@@ -6,41 +6,39 @@ services:
       - 3001:3000
     container_name: frontend_compose
     #network_mode: "host"
-    networks:
-      - internal
-      - external
+    #network_mode: host
 
   backend-service:
     build: ./backend
     ports:
       - 8001:8000
     container_name: backend_compose
-    networks:
-      - internal
-      - external
+    #network_mode: host
     
   database:
-    image: postgres16.6
+    image: postgres:16.6
     restart: always
     environment:
       POSTGRES_PASSWORD: password
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
-      - 5430:5432
+      - 5433:5432
     container_name: pg_db
-    networks:
-      - internal
+    #network_mode: host
 
 volumes:
-  pgdata
+  pgdata:
 
-networks:
-  internal:
-    driver: bridge
+# networks:
+#   internal:
+#     driver: bridge
 
-  external:
-    driver: host
+#   host:
+#     driver: host
+
+  # external:
+  #   driver: host
 
 
     
