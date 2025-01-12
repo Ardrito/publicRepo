@@ -22,11 +22,22 @@ services:
       POSTGRES_PASSWORD: password
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./backend/mnist.csv:/import/mnist.csv
     ports:
       - 5433:5432
     container_name: pg_db
     #network_mode: host
 
+  admin:
+    image: dpage/pgadmin4
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ardrito@hotmail.com
+      PGADMIN_DEFAULT_PASSWORD: password
+      PGADMIN_CONFIG_WTF_CSRF_CHECK_DEFAULT: 'False'
+    container_name: compose_pgadmin
+    ports:
+      - 82:80
 volumes:
   pgdata:
 

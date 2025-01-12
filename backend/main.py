@@ -8,6 +8,7 @@ from typing import Any, Annotated
 import tensorflow as tf
 #from tensorflow.keras.datasets import mnist
 from tensorflow import keras
+from tensorflow.keras.datasets import mnist
 
 
 from fastapi import FastAPI, Form
@@ -23,14 +24,14 @@ import logging
 import psycopg2 as psy
 from config import config
 
-db = 'mnistdb'
+db = 'mnistdb2'
 table = 'data'
 
 
 logger = logging.getLogger('uvicorn.error')
 logger.setLevel(logging.DEBUG)
 
-logger.debug('error message')
+#logger.debug('error message')
 
 app = FastAPI()
 
@@ -49,6 +50,7 @@ app.add_middleware(
     allow_headers=['*']
 
 )
+
 
 def connectTest():
     
@@ -110,7 +112,7 @@ def create_table():
         if (exists == True):
             print('Table exists')
         else:
-            crsr.execute(f'''CREATE TABLE {table} (id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, image TEXT, label INT, prediction INT, correct BOOL, certainty REAL);''')
+            crsr.execute(f'''CREATE TABLE {table} (id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, image TEXT, label INT, prediction INT, correct BOOL, certainty REAL, source TEXT);''')
             print('Table created')
         
     except(Exception, psy.DatabaseError) as error:
@@ -119,6 +121,32 @@ def create_table():
     finally:
         crsr.close()
         conn.close()
+
+def remove_table():
+    try:
+        conn = psy.connect(**config(),database=db)
+        conn.autocommit = True
+
+        crsr = conn.cursor()
+        crsr.execute('SELECT version()')
+
+        dbname = db
+        crsr.execute(f"SELECT datname FROM pg_database WHERE datname = '{dbname}'")
+        tables = crsr.fetchall()
+        #print(len(tables))
+        if len(tables) == 0:
+            print('Table does not exist')
+        else:
+            crsr.execute(f'''DROP TABLE {table}''')
+        crsr.close()
+
+    except(Exception, psy.DatabaseError) as error:
+        print(error)
+
+    finally:
+        if conn != None:
+            conn.close()
+            #print("Connection closed")
 
 def load_to_postgres(path:str="numbers"):
     '''
@@ -205,9 +233,11 @@ def predict_from_postgres(id):
         #Image stored as a string (TEXT) of a 1D array in postgres convert to a np.ndarray
         img = (np.fromstring(data.strip('[]'),dtype=float, sep=' '))
 
-        img = np.reshape(img, (1,28,28)) #Reshape image as model.predict requires 3D array
+        #img = np.reshape(img, (1,28,28)) #Reshape image as model.predict requires 3D array
 
-        prediction, certainty = show_img(0,img,[label])
+        num, prediction, certainty = predict(img)
+
+        #plt.show()
 
         if (prediction != None) & (prediction == label):
             correct = True
@@ -245,7 +275,7 @@ def show_img(i, data, labels):
         color = 'red'
         
     plt.xlabel(f"Pred:{pred} (Actual:{labels[i]})", color=color)
-    #plt.show()
+    plt.show()
 
     return(pred, certainty)
     
@@ -298,6 +328,7 @@ def predict(num):
     num = num/255.0 #Normailse greyscale values 0 to 1
 
     plt.imshow(num, cmap=plt.cm.binary) #Show image with greyscale colormap
+    #plt.show()
     
     num = np.reshape(num,(1,28,28)) #model.Predict requires 3D np array (1,28,28)
     
@@ -309,6 +340,8 @@ def predict(num):
     plt.xlabel(f"Prediction: {pred}, Certainty: {format(certainty, '.2f')}")
     plt.xticks([])
     plt.yticks([])
+
+    #print (pred, certainty)
     
     return(num,pred,certainty)
 
@@ -384,6 +417,17 @@ def testUploadForm(file: Annotated[UploadFile, Form()], label: Annotated[str, Fo
     #certainty is numpy.float32, pred is numpy int64 --> numpy formats not json compatible must be standard types
     return (int(pred), float(certainty)) #
 
+
+def fromcsv():
+    connect_Create_db()
+    create_table()
+
+    conn = psy.connect(**config(),database=db)
+    conn.autocommit = True
+    crsr=conn.cursor()
+
+    crsr.execute('''COPY data(id, image, label, prediction, correct, certainty, source) FROM '/import/mnist.csv' DELIMITER ',' CSV HEADER;''')
+
 @app.get("/get/{name}")
 def download(name)-> FileResponse:
     '''
@@ -405,10 +449,13 @@ def remove(name: str)->str:
 @app.get("/iNiTiAlIsE")
 def iNiTiAlIsE():
     connect_Create_db()
+    remove_table()
     create_table()
-    load_to_postgres()
-    for i in range(1,13):
-        predict_from_postgres(i)
+    # load_to_postgres()
+    # for i in range(1,13):
+    #     predict_from_postgres(i)
+    fromcsv()
+
     return("Done initialising")
 
 
@@ -451,4 +498,56 @@ def upload(file: UploadFile = File(...))-> tuple[list, int, float]:
 
     return num.tolist(),pred,certainty
 
-logger.debug('end')
+#logger.debug('end')
+
+def dataset():
+    connect_Create_db()
+    create_table()
+    #(X_train, y_train), (X_test, y_test) = mnist.load_data()
+    
+    #show_img(5, X_train, y_train)
+    conn = psy.connect(**config())
+    conn.autocommit = True
+    crsr=conn.cursor()
+    for i in range(len(X_train)):
+
+        image = X_train[i]
+        
+        num, pred, certainty = predict(image)
+        certainty = round(float(certainty), 2)
+
+        label = y_train[i]
+
+        if (pred != None) & (pred == label):
+            correct = True
+        elif (pred != label):
+            correct = False
+        num = np.reshape(image,(-1))
+        crsr.execute(f'''INSERT INTO {table}(image, label, prediction, correct, certainty, source) VALUES ('{num}', {label}, {pred}, {correct}, {certainty}, 'train')''')
+        crsr.execute(f'''SELECT MAX(id) FROM {table}''')
+
+    for i in range(len(X_test)):
+
+        image = X_test[i]
+        
+        num, pred, certainty = predict(image)
+        certainty = round(float(certainty), 2)
+
+        label = y_test[i]
+
+        if (pred != None) & (pred == label):
+            correct = True
+        elif (pred != label):
+            correct = False
+        num = np.reshape(image,(-1))
+        crsr.execute(f'''INSERT INTO {table}(image, label, prediction, correct, certainty, source) VALUES ('{num}', {label}, {pred}, {correct}, {certainty}, 'test')''')
+        crsr.execute(f'''SELECT MAX(id) FROM {table}''')
+
+
+#dataset()
+
+#fromcsv()
+
+
+
+#predict_from_postgres(1)
