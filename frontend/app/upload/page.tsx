@@ -112,6 +112,18 @@ function upload(){
         setLabel(11)
         setPreview(null)
         setFile(undefined)
+        setImgURL(undefined)
+    }
+
+    async function metrics(){
+        setDisplayReturn(false)
+        setDisplayForm(true)
+        setLabel(11)
+        setPreview(null)
+        setFile(undefined)
+        setImgURL(undefined)
+        navigate.push(`/metrics`)
+
     }
 
     async function labelChange(e){
@@ -138,63 +150,101 @@ function upload(){
         <div>
             
             {displayForm && (
-                <Card color="transparent" shadow={false}>
-                    <Typography variant="h4" color="blue-gray">
-                        MNIST number prediction
-                    </Typography>
-                    <Typography color="gray" className="mt-1 font-normal">
-                        Upload a JPG or PNG image of a number to predict, labels provided will be stored for future training (optional).
-                    </Typography>
-                    <form className="mt-8 mb-2 w-80 max-w-screen-lg sm:w-96" onSubmit={handleOnSubmit}>
+                <>
+                    <Card color="transparent" shadow={false}>
+                        <Typography variant="h4" color="blue-gray">
+                            MNIST number prediction
+                        </Typography>
+                        <Typography color="gray" className="mt-1 font-normal">
+                            Upload a JPG or PNG image of a number to predict, labels provided will be stored for future training (optional).
+                        </Typography>
+                        <form className="mt-8 mb-2 w-80 max-w-screen-lg sm:w-96" onSubmit={handleOnSubmit}>
 
-                        <div className="flex items-center justify-center w-full">
-                            <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-600">
-                                <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                    <svg className="w-8 h-8 mb-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
-                                        <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" 
-                                        strokeWidth="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
-                                    </svg>
-                                    <p className="mb-2 text-sm text-gray-500 dark:text-gray-400"><span className="font-semibold">Click to upload</span></p>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">PNG, JPG</p>
-                                </div>
-                                <input id="dropzone-file" type="file" className="hidden" name="image" 
-                                onChange={handleOnChange} 
-                                accept='image/jpeg, image/png'/>
-                            </label>
-                        </div> 
+                            <div className="flex items-center justify-center w-full">
+                                <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-600">
+                                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                        <svg className="w-8 h-8 mb-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
+                                            <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" 
+                                            strokeWidth="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
+                                        </svg>
+                                        <p className="mb-2 text-sm text-gray-500 dark:text-gray-400"><span className="font-semibold">Click to upload</span></p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">PNG, JPG</p>
+                                    </div>
+                                    <input id="dropzone-file" type="file" className="hidden" name="image" 
+                                    onChange={handleOnChange} 
+                                    accept='image/jpeg, image/png'/>
+                                </label>
+                            </div> 
 
-                        <img src={preview} />
-                        
-                        <label htmlFor="lbl" className="block mb-2 text-base font-medium text-white-900 dark:text-white">What number should it be?</label>
-                        <select id="countries" className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" onChange={labelChange}>
-                            <option defaultValue={11} value={11}>No Label</option>
-                            <option value={0}>0</option>
-                            <option value={1}>1</option>
-                            <option value={2}>2</option>
-                            <option value={3}>3</option>
-                            <option value={4}>4</option>
-                            <option value={5}>5</option>
-                            <option value={6}>6</option>
-                            <option value={7}>7</option>
-                            <option value={8}>8</option>
-                            <option value={9}>9</option>
-                        </select>
+                            <div className='center'>
+                                <img src={preview} className='center'/>
+                            </div>
 
-                        <Button type='submit' className="mt-6" fullWidth >
-                        Submit
-                        </Button>
-                    </form>
+                                
+                            
+                            <label htmlFor="lbl" className="block mb-2 text-base font-medium text-white-900 dark:text-white">What number should it be?</label>
+                            <select id="countries" className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" onChange={labelChange}>
+                                <option defaultValue={11} value={11}>No Label</option>
+                                <option value={0}>0</option>
+                                <option value={1}>1</option>
+                                <option value={2}>2</option>
+                                <option value={3}>3</option>
+                                <option value={4}>4</option>
+                                <option value={5}>5</option>
+                                <option value={6}>6</option>
+                                <option value={7}>7</option>
+                                <option value={8}>8</option>
+                                <option value={9}>9</option>
+                            </select>
+
+                            <div>
+                                <Button type='submit' className="mt-6 p-3" fullWidth >
+                                Submit
+                                </Button>
+                            </div>
                     
-                </Card>
+                            
+                            
+                        </form>
+                    </Card>
+                    <Card>
+                        <div>
+                                <Button className="mt-6 p-3" fullWidth onClick={metrics}>
+                                    Metrics
+                                </Button>
+                        </div>
+                    </Card>
+                </>
             )}
 
             {displayReturn && (
-                <Card>
-                    <img src={imgURL} />
-                    <Button className="mt-6" fullWidth onClick={onReturn}>
-                        Upload new image
-                    </Button>
-                </Card>
+                <>
+                    <Card color="transparent" shadow={false}>
+                        <div className='center'>
+                            <Typography variant="h4" color="blue-gray">
+                                MNIST number prediction
+                            </Typography>
+                            <img src={imgURL} className='p-3 center'/>
+
+                        </div>
+                        <div>
+                            <Button className="mt-6 p-3" fullWidth onClick={onReturn}>
+                                Upload new image
+                            </Button>
+                        </div>
+                        
+                    </Card>
+
+                    <Card>
+                        <div>
+
+                            <Button className="mt-6 p-3" fullWidth onClick={metrics}>
+                                Metrics
+                            </Button>
+
+                        </div>
+                    </Card>
+                </>
             )}
         </div>
     )

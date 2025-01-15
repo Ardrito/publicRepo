@@ -345,6 +345,150 @@ def predict(num):
     
     return(num,pred,certainty)
 
+def fromcsv():
+    connect_Create_db()
+    create_table()
+
+    conn = psy.connect(**config(),database=db)
+    conn.autocommit = True
+    crsr=conn.cursor()
+
+    crsr.execute('''COPY data("image", "label", "prediction", "correct", "certainty", "source") FROM '/import/mnist.csv' DELIMITER ',' CSV HEADER;''')
+
+
+@app.get("/metrics")
+def metrics()-> FileResponse:
+    try:
+        conn = psy.connect(**config(),database=db)
+        conn.autocommit = True
+        crsr = conn.cursor()
+        crsr.execute(f'''SELECT COUNT(*) FROM {table};''')
+        noEntries = int(crsr.fetchone()[0])
+        crsr.execute(f'''SELECT COUNT(*) FROM {table} WHERE correct = true;''')
+        noCorrect = int(crsr.fetchone()[0])
+        noIncorrect = noEntries - noCorrect
+        crsr.execute(f'''SELECT COUNT(*) FROM {table} WHERE label is NULL;''')
+        noUnLabelled = int(crsr.fetchone()[0])
+        percentCorrect = round(((noCorrect-noUnLabelled)/noEntries),6)
+        classes = 10
+        numbers = np.zeros((classes,9))
+
+        #number[0 Total, 1 Correct, 2 Incorrect, 3 Accuracy, 4 TP, 5 FP, 6 FN, 7 Precision, 8 Recall]
+
+        global message 
+        message = f"\n\n"
+
+        for i in range(classes):
+            crsr.execute(f'''SELECT COUNT(*) FROM {table} WHERE label = {i};''')
+            numbers[i,0] = int(crsr.fetchone()[0])
+
+            crsr.execute(f'''SELECT COUNT(*) FROM {table} WHERE label = {i} AND correct = 'true';''')
+            numbers[i,1] = int(crsr.fetchone()[0])
+            numbers[i,2] = numbers[i,0]-numbers[i,1]
+
+            #Accuracy
+            numbers[i,3] = round((numbers[i,1]/numbers[i,0]),6)
+
+            # True Positive
+            crsr.execute(f'''SELECT COUNT(*) FROM {table} WHERE prediction = {i} AND label = {i};''')
+            numbers[i,4] = numbers[i,1] = int(crsr.fetchone()[0])
+
+            # False Positive
+            crsr.execute(f'''SELECT COUNT(*) FROM {table} WHERE prediction = {i} AND label != {i};''')
+            numbers[i,5] = int(crsr.fetchone()[0])
+
+            # False Negative
+            crsr.execute(f'''SELECT COUNT(*) FROM {table} WHERE prediction != {i} AND label = {i};''')
+            numbers[i,6] = int(crsr.fetchone()[0])
+
+            #Precision
+            numbers[i,7] = round(((numbers[i,4])/(numbers[i,4]+numbers[i,5])),6)
+
+            #Recall
+            numbers[i,8] = round(((numbers[i,4])/(numbers[i,4]+numbers[i,6])),6)
+
+
+        message += (f"Entries: {noEntries}\nCorrect: {noCorrect}\nIncorrect: {noIncorrect}\nUnlablled: {noUnLabelled}\nPercentage Correct: {percentCorrect}%\n")
+
+        message += ("\nNumbers:\n")
+        for i in range(classes):
+            message += (f"{i}: Total: {numbers[i,0]} Correct: {numbers[i,1]} Accuracy: {numbers[i,3]} Precision: {numbers[i,7]} Recall: {numbers[i,8]}\n\n")
+
+        precisionMacroAverage = round((sum(numbers[:,7])/classes),6)
+        recallMacroAverage = round((sum(numbers[:,8])/classes),6)
+
+        precisionMicroAverage = round((sum(numbers[:,4])/(sum(numbers[:,4])+sum(numbers[:,5]))),6)
+        recallMicroAverage = round((sum(numbers[:,4])/(sum(numbers[:,4])+sum(numbers[:,6]))),6)
+
+        message += (f"Macro Average:\n  Precision: {precisionMacroAverage}\n  Recall: {recallMacroAverage}\n\n")
+
+        message += (f"Micro Average:\n  Precision: {precisionMicroAverage}\n  Recall: {recallMicroAverage}\n\n")
+
+        #print (message)
+        
+
+        conn.close()
+
+        X = np.zeros((classes,4))
+        for i in range(classes):
+            X[i,0] = i
+            X[i,1] = numbers[i,0]
+            X[i,2] = numbers[i,1]
+            X[i,3] = numbers[i,2]
+        X = X[X[:,1].argsort()]
+
+        #print(X)
+    
+        #plt.figure(figsize=(2*2*num_cols, 2*num_rows))
+        x = X[:,0]
+        x = np.reshape(x,(-1))
+        y1 = X[:,2]
+        y1 = np.reshape(y1,(-1))/1000
+        y2 = X[:,3]
+        y2 = np.reshape(y2,(-1))/1000
+        plt.cla()
+        plt.clf()
+        fig, ax = plt.subplots(1,3)
+
+        fig.set_figwidth(15)
+        #print(f"x:\n{x}\ny1:\n{y1}\ny2:\n{y2}")
+        ax[0].bar(x,y1,color='green', label="Correct")
+        ax[0].bar(x,y2,bottom=y1,color='red', label="Incorrect")
+        ax[0].set_title(f"Accuracy")
+        ax[0].set_xticks(x)
+        ax[0].legend(loc="upper right")
+        ax[0].set_ylabel("Samples (/1,000)")
+
+
+        x = [0,1,2,3,4,5,6,7,8,9]
+        y1 = numbers[:,7]
+        y1 = np.reshape(y1,(-1))
+        ax[1].bar(x,y1,color='blue')
+        ax[1].set_title('Precision')
+        ax[1].set_xticks(x)
+        ax[1].set_xlabel('Digit')
+
+        y1 = numbers[:,8]
+        y1 = np.reshape(y1,(-1))
+        ax[2].bar(x,y1,color='grey')
+        ax[2].set_title('Recall')
+        ax[2].set_xticks(x)
+
+        plt.suptitle("Metrics")
+
+        plt.savefig("bar.png")
+        
+        #print("Shown")
+
+    except(Exception, psy.DatabaseError) as error:
+        print(error)
+
+    return FileResponse("bar.png", filename='matplot.png', media_type="png")
+
+@app.get("/metrics/message")
+def messageReturn() -> str:
+    os.remove('bar.png')
+    return(message)
 
 @app.get("/")
 async def welcome()-> str:
@@ -357,6 +501,8 @@ async def welcome()-> str:
 def testUploadForm(file: Annotated[UploadFile, Form()], label: Annotated[str, Form()]):
     label = int(label)
     
+    plt.cla()
+    plt.clf()
     try:
         contents = file.file.read()
         with open(file.filename, 'wb') as f:
@@ -401,7 +547,7 @@ def testUploadForm(file: Annotated[UploadFile, Form()], label: Annotated[str, Fo
         conn.autocommit = True
         crsr=conn.cursor()
         num = np.reshape(num,(-1))
-        crsr.execute(f'''INSERT INTO {table}(image, label, prediction, correct, certainty) VALUES ('{num}', {label}, {pred}, {correct}, {certainty})''')
+        crsr.execute(f'''INSERT INTO {table}(image, label, prediction, correct, certainty, source) VALUES ('{num}', {label}, {pred}, {correct}, {certainty}, 'user')''')
         crsr.execute(f'''SELECT MAX(id) FROM {table}''')
         data = crsr.fetchone()[0]
         crsr.close()
@@ -417,16 +563,6 @@ def testUploadForm(file: Annotated[UploadFile, Form()], label: Annotated[str, Fo
     #certainty is numpy.float32, pred is numpy int64 --> numpy formats not json compatible must be standard types
     return (int(pred), float(certainty)) #
 
-
-def fromcsv():
-    connect_Create_db()
-    create_table()
-
-    conn = psy.connect(**config(),database=db)
-    conn.autocommit = True
-    crsr=conn.cursor()
-
-    crsr.execute('''COPY data(id, image, label, prediction, correct, certainty, source) FROM '/import/mnist.csv' DELIMITER ',' CSV HEADER;''')
 
 @app.get("/get/{name}")
 def download(name)-> FileResponse:

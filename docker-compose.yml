@@ -10,6 +10,7 @@ services:
 
   backend-service:
     build: ./backend
+    restart: always
     ports:
       - 8001:8000
     container_name: backend_compose
@@ -22,7 +23,7 @@ services:
       POSTGRES_PASSWORD: password
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./backend/mnist.csv:/import/mnist.csv
+      - ./backend/mnistnoid.csv:/import/mnist.csv
     ports:
       - 5433:5432
     container_name: pg_db
@@ -34,7 +35,7 @@ services:
     environment:
       PGADMIN_DEFAULT_EMAIL: ardrito@hotmail.com
       PGADMIN_DEFAULT_PASSWORD: password
-      PGADMIN_CONFIG_WTF_CSRF_CHECK_DEFAULT: 'False'
+      #PGADMIN_CONFIG_WTF_CSRF_CHECK_DEFAULT: 'False'
     container_name: compose_pgadmin
     ports:
       - 82:80
