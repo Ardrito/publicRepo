@@ -42,25 +42,27 @@ function displayMetrics(){
 
 
     return(
-        <Card color="transparent" shadow={false}>
-            <Typography variant="h4" color="blue-gray">
-                Metrics
-            </Typography>
-            <img src={metricsURL} />
+        <div className='h-screen flex justify-center max-w-400' >
+            <Card color="transparent" shadow={false}className='p-5'>
+                <Typography variant="h4" color="blue-gray">
+                    MNIST Number Predictor Metrics
+                </Typography>
+                <div className='mt-5'>
+                    <img src={metricsURL} className='bg-transparent inline-block'/>
+                </div>
+                <div className='p-5 text-sm text-center'>
+                    <pre>
+                        {message}
+                    </pre>
 
-            <div className='p-5 textSmall'>
-                <pre>
-                    {message}
-                </pre>
+                </div>
 
-            </div>
+                <Button className="mt-6" fullWidth onClick={onReturn}>
+                    Return to upload
+                </Button>
 
-            <Button className="mt-6" fullWidth onClick={onReturn}>
-                Return to upload
-            </Button>
-
-        </Card>
-
+            </Card>
+        </div>
     )
 }
 
