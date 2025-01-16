@@ -1,5 +1,7 @@
 'use client'
 
+//@ts-nocheck
+
 import React, {useEffect, useState} from 'react';
 import {
   Card,
@@ -18,7 +20,7 @@ function upload(){
     const [prediction, setPrediction] = useState<Number>();
     const [certainty, setCertainty] = useState<Number>();
     const [imgURL, setImgURL] = useState<string>();
-    const [preview, setPreview] = useState<string | ArrayBuffer | null>();
+    const [preview, setPreview] = useState<string | undefined>();
     const [label, setLabel] = useState<Number>(11);
     let navigate = useRouter();
     const base = 'http://localhost:8001/'
@@ -77,7 +79,7 @@ function upload(){
         const previewFile = new FileReader;
 
         previewFile.onload = function() {
-            setPreview(previewFile.result)
+            setPreview(previewFile.result as string)
         }
 
         previewFile.readAsDataURL(target.files[0]);
@@ -110,7 +112,7 @@ function upload(){
         setDisplayReturn(false)
         setDisplayForm(true)
         setLabel(11)
-        setPreview(null)
+        setPreview(undefined)
         setFile(undefined)
         setImgURL(undefined)
     }
@@ -119,14 +121,14 @@ function upload(){
         setDisplayReturn(false)
         setDisplayForm(true)
         setLabel(11)
-        setPreview(null)
+        setPreview(undefined)
         setFile(undefined)
         setImgURL(undefined)
         navigate.push(`/metrics`)
 
     }
 
-    async function labelChange(e){
+    async function labelChange(e: any){
         
         console.log(e.target.value)
 
@@ -147,7 +149,7 @@ function upload(){
 
 
     return(
-        <div className='h-screen flex justify-center max-w-400' >
+        <div className='h-screen flex justify-center max-w-500' >
             {displayForm && (
                 <div>
                     <Card color="transparent" shadow={false} className='p-5'>
@@ -157,11 +159,11 @@ function upload(){
                         <Typography color="gray" className="mt-1 font-normal pb-2">
                             Upload a JPG or PNG image of a number to predict, labels provided will be stored for future training (optional).
                         </Typography>
-                        <form className="mt-8 mb-2 w-80 max-w-screen-lg sm:w-96" onSubmit={handleOnSubmit}>
+                        <form className="mt-8 mb-2  max-w-screen-lg" onSubmit={handleOnSubmit}>
 
                             <div className="flex items-center justify-center w-full pb-3">
                                 <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-600">
-                                    <div className="flex flex-col items-center justify-center pt-5 pb-6 max-w-1">
+                                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
                                         <svg className="w-8 h-8 mb-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
                                             <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" 
                                             strokeWidth="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
@@ -218,8 +220,8 @@ function upload(){
             )}
 
             {displayReturn && (
-                <>
-                    <Card color="transparent" shadow={false} className='p-5'>
+                <div className='max-w-screen-lg'>
+                    <Card color="transparent" shadow={false} className='p-5 max-w-50'>
                         <div>
                             <Typography variant="h4" color="blue-gray">
                                 MNIST Number Predictor
@@ -228,9 +230,14 @@ function upload(){
                             <Typography color="gray" className="mt-1 font-normal pb-2">
                                 MNIST processed image and prediction:
                             </Typography>
-                            <img src={imgURL} className='p-3 center inline-block'/>
+                        </div>
+
+                        <div className='bg-transparent max-w-screen-lg'>
+
+                            <img src={imgURL} className='inline-block bg-transparent'/>
 
                         </div>
+
                         <div className='mt-2'>
                             <Button fullWidth onClick={onReturn}>
                                 Upload new image
@@ -244,7 +251,7 @@ function upload(){
                         </div>
                         
                     </Card>
-                </>
+                </div>
             )}
         </div>
     )

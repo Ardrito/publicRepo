@@ -19,6 +19,6 @@ EXPOSE 3000
 
 
 # Build 
-#RUN npm run build
+RUN npm run build
 
-ENTRYPOINT [ "npm", "run", "dev" ]
+ENTRYPOINT [ "npm", "start"]

@@ -8,7 +8,7 @@ import {
   Typography,
   CardBody,
   CardFooter,
-} from "@material-tailwind/react";
+} from "./exports";
 
 
 export default function Home() {
@@ -20,18 +20,20 @@ export default function Home() {
 }
 
   return (
-    <Card color='transparent' >
-      <CardBody className="mt-6 w-96">
-        <Typography variant="h4" color="blue-gray">
-          Welcome to my home page, this is currently under maintenance but have a look at my most recent app deployment predicting hand drawn digits.
-        </Typography>
-      </CardBody>
-      <CardFooter>
-        <Button className='mt-6' onClick={visitApp}>
-              Click here to visit my app
-          </Button>
-      </CardFooter>
+    <div className="text-center">
+      <Card color='transparent'>
+        <CardBody className="mt-6 w-150">
+          <Typography variant="h4" color="blue-gray">
+            Welcome to my home page, this is currently under maintenance but have a look at my most recent app deployment predicting hand drawn digits.
+          </Typography>
+        </CardBody>
+        <CardFooter>
+          <Button className='mt-6' onClick={visitApp}>
+                Click here to visit my app
+            </Button>
+        </CardFooter>
 
-    </Card>
+      </Card>
+    </div>
   );
 }
