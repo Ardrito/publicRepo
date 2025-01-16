@@ -1,17 +1,14 @@
-"use client"
+'use client'
 
 import { useRouter } from "next/navigation";
 
 import {
-  ThemeProvider,
   Card,
   Button,
   Typography,
   CardBody,
   CardFooter,
 } from "@material-tailwind/react";
-
-export { ThemeProvider, Button };
 
 
 export default function Home() {
@@ -23,20 +20,18 @@ export default function Home() {
 }
 
   return (
-    <Card className="mt-6 w-96">
-      <CardBody>
-        <Typography variant="h5" color="blue-gray" className="mb-2">
-          UI/UX Review Check
-        </Typography>
-        <Typography>
-          The place is close to Barceloneta Beach and bus stop just 2 min by
-          walk and near to &quot;Naviglio&quot; where you can enjoy the main
-          night life in Barcelona.
+    <Card color='transparent' >
+      <CardBody className="mt-6 w-96">
+        <Typography variant="h4" color="blue-gray">
+          Welcome to my home page, this is currently under maintenance but have a look at my most recent app deployment predicting hand drawn digits.
         </Typography>
       </CardBody>
-      <CardFooter className="pt-0">
-        <Button>Read More</Button>
+      <CardFooter>
+        <Button className='mt-6' onClick={visitApp}>
+              Click here to visit my app
+          </Button>
       </CardFooter>
+
     </Card>
   );
 }
